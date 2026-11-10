@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="js/jquery-2.1.3.min.js"></script>
+<title>じゃんけん（キーボード対戦）</title>
+<style>
+  :root{
+    --bg1:#1b2240;
+    --bg2:#2d1b4e;
+    --card:#ffffff;
+    --ink:#1f2340;
+    --muted:#7b7f99;
+    --accentA:#ff5a7a;
+    --accentB:#3aa0ff;
+    --ready:#27c498;
+    --gold:#ffc93c;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(1200px 600px at 20% -10%, #3a2a6b 0%, transparent 60%),
+               radial-gradient(1000px 600px at 100% 0%, #273a7a 0%, transparent 55%),
+               linear-gradient(160deg,var(--bg1),var(--bg2));
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:24px 16px 40px;
+  }
+
+  header h1{
+    color:#fff;
+    font-size:clamp(28px,6vw,44px);
+    letter-spacing:.08em;
+    margin:8px 0 2px;
+    text-shadow:0 3px 18px rgba(0,0,0,.35);
+  }
+  .subtitle{ color:#cdd3f2; margin:0 0 18px; font-size:15px; }
+  .subtitle b{ color:var(--gold); }
+
+  .board{ width:100%; max-width:760px; }
+
+  /* スコアボード */
+  .scorebar{
+    display:flex; align-items:center; justify-content:center; gap:18px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.15);
+    border-radius:18px; padding:14px 18px; margin-bottom:18px;
+    backdrop-filter:blur(6px);
+  }
+  .scorebar .name{ color:#fff; font-weight:700; letter-spacing:.05em; }
+  .scorebar .name.a{ color:var(--accentA); }
+  .scorebar .name.b{ color:var(--accentB); }
+  .scorebar .num{
+    font-size:34px; font-weight:800; color:#fff; min-width:42px; text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .scorebar .dash{ color:#9aa0c7; font-size:22px; }
+
+  /* プレイヤー2枚 + VS */
+  .arena{ display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:12px; }
+  .vs{ align-self:center; color:#fff; font-weight:900; font-style:italic; font-size:26px; opacity:.8; }
+
+  .player{
+    background:var(--card); border-radius:20px; padding:20px 16px 24px; text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
+    border:3px solid transparent;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .player h2{ margin:0 0 4px; font-size:20px; letter-spacing:.06em; }
+  #playerA h2{ color:var(--accentA); }
+  #playerB h2{ color:var(--accentB); }
+
+  .keys{ color:var(--muted); font-size:12.5px; line-height:1.7; margin-bottom:12px; }
+  .keys kbd{
+    display:inline-block; background:#f1f2f8; border:1px solid #d7d9e8;
+    border-bottom-width:2px; border-radius:6px; padding:1px 7px;
+    font-family:inherit; font-size:12px; color:#444; margin:0 1px;
+  }
+
+  .hand{ font-size:64px; line-height:1; height:72px; display:flex; align-items:center; justify-content:center; }
+  .status{ margin-top:8px; font-weight:700; color:var(--muted); min-height:1.4em; }
+
+  .player.ready{
+    border-color:var(--ready); transform:translateY(-4px);
+    box-shadow:0 14px 34px rgba(39,196,152,.45);
+  }
+  .player.ready .status{ color:var(--ready); }
+  .hand.pop{ animation:pop .35s ease; }
+  @keyframes pop{ 0%{transform:scale(.3);opacity:0;} 60%{transform:scale(1.25);} 100%{transform:scale(1);opacity:1;} }
+
+  /* 優勝カードの演出 */
+  .player.champion{
+    border-color:var(--gold);
+    animation:champ .7s ease infinite alternate;
+    position:relative; z-index:2;
+  }
+  @keyframes champ{
+    from{ transform:translateY(-4px) scale(1.04); box-shadow:0 16px 40px rgba(255,201,60,.5); }
+    to{   transform:translateY(-10px) scale(1.10); box-shadow:0 24px 64px rgba(255,201,60,.9); }
+  }
+
+  #result{
+    margin:20px auto 4px; text-align:center;
+    font-size:clamp(22px,5vw,30px); font-weight:800; color:#fff;
+    min-height:1.4em; text-shadow:0 2px 14px rgba(0,0,0,.4);
+  }
+  #result.show{ animation:pop .4s ease; }
+  #result.win-a{ color:var(--accentA); }
+  #result.win-b{ color:var(--accentB); }
+  #result.victory{ color:var(--gold); }
+
+  .note{ color:#cdd3f2; text-align:center; font-size:13.5px; line-height:1.9; margin:8px 0 0; }
+  .note kbd{ background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); border-radius:6px; padding:1px 7px; color:#fff; font-size:12px; }
+  #hint{ color:var(--gold); font-weight:700; min-height:1.4em; text-align:center; }
+
+  .sound-toggle{
+    background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25);
+    border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; margin-top:14px;
+  }
+  .sound-toggle:hover{ background:rgba(255,255,255,.2); }
+  .voice-select{
+    background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25);
+    border-radius:999px; padding:6px 12px; font-size:13px; margin:14px 0 0 8px; cursor:pointer;
+  }
+  .voice-select option{ color:#1f2340; }
+
+  @media(max-width:480px){ .hand{ font-size:50px; height:58px; } .vs{ font-size:20px; } }
+</style>
+</head>
+<body>
+
+<canvas id="confetti" style="position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:9999;"></canvas>
+
+<header>
+  <h1>⚔️ じゃんけん対戦</h1>
+</header>
+<p class="subtitle">先に <b>3本</b> 勝った方が優勝！</p>
+
+<div class="board">
+
+  <div class="scorebar">
+    <span class="name a">PLAYER A</span>
+    <span class="num" id="scoreA">0</span>
+    <span class="dash">－</span>
+    <span class="num" id="scoreB">0</span>
+    <span class="name b">PLAYER B</span>
+  </div>
+
+  <div class="arena">
+    <div class="player" id="playerA">
+      <h2>PLAYER A</h2>
+      <div class="keys"><kbd>Q</kbd>グー / <kbd>A</kbd>チョキ / <kbd>Z</kbd>パー</div>
+      <div class="hand" id="handA"></div>
+      <div class="status" id="statusA">まだ</div>
+    </div>
+
+    <div class="vs">VS</div>
+
+    <div class="player" id="playerB">
+      <h2>PLAYER B</h2>
+      <div class="keys"><kbd>P</kbd>グー / <kbd>;</kbd>チョキ / <kbd>/</kbd>パー</div>
+      <div class="hand" id="handB"></div>
+      <div class="status" id="statusB">まだ</div>
+    </div>
+  </div>
+
+  <div id="result">▶ <kbd style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:1px 7px;">スペース</kbd> でスタート！</div>
+  <div id="hint"></div>
+
+  <p class="note">
+    「さいしょはグー、じゃんけんぽん！」で手を出そう。あいこなら出し直し。<br>
+    決着したら <kbd>スペース</kbd> で次の勝負。※反応しないときは <b>日本語入力をOFF（半角/英数）</b> に
+  </p>
+
+  <div style="text-align:center;">
+    <button class="sound-toggle" id="soundToggle">🔊 音声・効果音：ON</button>
+    <select class="voice-select" id="voiceSelect" title="声を選ぶ"></select>
+  </div>
+  <p class="note" style="font-size:12px;opacity:.75;">
+    声を変えたい時は別の声も選べます！
+  </p>
+</div>
+
+<script>
+/* ===== キー設定 ===== */
+const keyMap = {
+    "KeyQ":{player:"A",hand:"グー"}, "KeyA":{player:"A",hand:"チョキ"}, "KeyZ":{player:"A",hand:"パー"},
+    "KeyP":{player:"B",hand:"グー"}, "Semicolon":{player:"B",hand:"チョキ"}, "Slash":{player:"B",hand:"パー"}
+};
+const altKeyMap = {
+    "q":{player:"A",hand:"グー"}, "a":{player:"A",hand:"チョキ"}, "z":{player:"A",hand:"パー"},
+    "p":{player:"B",hand:"グー"}, ";":{player:"B",hand:"チョキ"}, "/":{player:"B",hand:"パー"}
+};
+const EMOJI = { "グー":"✊", "チョキ":"✌️", "パー":"🖐" };
+const WIN_COUNT = 3;
+
+/* ===== 状態 ===== */
+let handA = "", handB = "";
+let scoreA = 0, scoreB = 0;
+let roundActive = false;   // 手を出してよい時間か
+let matchOver = false;     // 優勝が決まったか
+let roundSeq = 0;          // 進行中ラウンドのID（古いタイマーを無効化するため）
+
+/* ===== 効果音（Web Audio APIで合成）===== */
+let audioCtx = null;
+let soundOn = true;
+
+function initAudio(){
+    if(!audioCtx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(AC) audioCtx = new AC();
+    }
+    if(audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+function tone(freq, dur, startAt, type="sine", vol=0.2){
+    if(!audioCtx) return;
+    const t0 = audioCtx.currentTime + startAt;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0 + dur);
+}
+function sndSelect(){ if(soundOn) tone(520,0.08,0,"square",0.12); }
+function sndWin(){     if(soundOn){ tone(660,0.12,0,"triangle",0.2); tone(880,0.18,0.1,"triangle",0.2);} }
+function sndVictory(){
+    if(!soundOn) return;
+    // 上がっていくファンファーレ
+    const melody = [523,659,784,1047,784,1047,1319];
+    melody.forEach((f,i)=> tone(f,0.3, i*0.14, "triangle", 0.22));
+    // 最後にジャーン！と和音
+    const end = melody.length * 0.14;
+    [523,659,784,1047].forEach(f => tone(f, 1.0, end, "triangle", 0.16));
+    // キラキラ音
+    [1568,1760,2093].forEach((f,i)=> tone(f, 0.5, end + 0.1 + i*0.08, "sine", 0.1));
+}
+
+// 「わーっ！」という歓声（ホワイトノイズを盛り上げて作る）
+function sndCheer(){
+    if(!soundOn || !audioCtx) return;
+    const dur = 1.8;
+    const t0 = audioCtx.currentTime;
+
+    // ザーッというノイズ源を作る
+    const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0; i<data.length; i++) data[i] = Math.random()*2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+
+    // 人の声っぽい帯域だけ通す
+    const bp = audioCtx.createBiquadFilter();
+    bp.type = "bandpass"; bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(500, t0);
+    bp.frequency.linearRampToValueAtTime(1300, t0 + 0.3);   // 「わー」と上がる感じ
+    bp.frequency.linearRampToValueAtTime(900, t0 + dur);
+
+    // 音量を一気に盛り上げてゆっくり下げる
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.4, t0 + 0.25);
+    gain.gain.linearRampToValueAtTime(0.3, t0 + 1.0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+
+    noise.connect(bp).connect(gain).connect(audioCtx.destination);
+    noise.start(t0); noise.stop(t0 + dur);
+}
+
+/* ===== 紙吹雪（canvas）===== */
+const confettiCanvas = document.getElementById("confetti");
+const cctx = confettiCanvas.getContext("2d");
+let confettiParticles = [];
+let confettiRAF = null;
+
+function resizeConfetti(){ confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+resizeConfetti();
+window.addEventListener("resize", resizeConfetti);
+
+function launchConfetti(champ){
+    // 勝者のテーマカラーを中心にする
+    let colors;
+    if(champ === "A")      colors = ["#ff5a7a","#ff8fa3","#ff3d63","#ffb0c1","#ffc93c","#ffffff"];
+    else if(champ === "B") colors = ["#3aa0ff","#7cc3ff","#1f7fe0","#a9d6ff","#ffc93c","#ffffff"];
+    else                   colors = ["#ff5a7a","#3aa0ff","#ffc93c","#27c498","#b06bff","#ffffff"];
+    const W = confettiCanvas.width;
+    for(let i=0; i<180; i++){
+        confettiParticles.push({
+            x: Math.random()*W,
+            y: -20 - Math.random()*W*0.2,
+            w: 6 + Math.random()*8,
+            h: 8 + Math.random()*12,
+            color: colors[Math.floor(Math.random()*colors.length)],
+            vx: -2.5 + Math.random()*5,
+            vy: 2 + Math.random()*4,
+            rot: Math.random()*Math.PI,
+            vr: -0.25 + Math.random()*0.5
+        });
+    }
+    if(!confettiRAF) animateConfetti();
+}
+
+function animateConfetti(){
+    cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+    confettiParticles.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.rot += p.vr;
+        cctx.save();
+        cctx.translate(p.x, p.y);
+        cctx.rotate(p.rot);
+        cctx.fillStyle = p.color;
+        cctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        cctx.restore();
+    });
+    confettiParticles = confettiParticles.filter(p => p.y < confettiCanvas.height + 30);
+    if(confettiParticles.length){
+        confettiRAF = requestAnimationFrame(animateConfetti);
+    } else {
+        confettiRAF = null;
+        cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+    }
+}
+
+function celebrate(champ){
+    launchConfetti(champ);
+    setTimeout(() => launchConfetti(champ), 400);   // 連発でさらに派手に
+    setTimeout(() => launchConfetti(champ), 800);
+}
+
+/* ===== 音声読み上げ（Web Speech API）===== */
+let voices = [];          // 選べる日本語音声の一覧
+let selectedVoice = null; // 今選ばれている声
+
+// 声の「良さ」を点数化（高品質な声を上に・自動選択する）
+function voiceScore(v){
+    const n = (v.name + " " + (v.voiceURI || "")).toLowerCase();
+    let s = 0;
+    if(/siri/.test(n))                 s += 50;  // Siりの声が一番自然
+    if(/enhanced|premium|neural/.test(n)) s += 40;
+    if(/kyoko/.test(n))                s += 10;
+    if(/otoya/.test(n))                s += 8;
+    if(!v.localService)                s += 5;   // クラウド音声は綺麗なことが多い
+    return s;
+}
+
+function loadVoices(){
+    if(!("speechSynthesis" in window)) return;
+    const all = speechSynthesis.getVoices();
+    const ja = all.filter(v => /ja|japan/i.test(v.lang));
+    voices = (ja.length ? ja : all).slice().sort((a,b) => voiceScore(b) - voiceScore(a));
+
+    // ドロップダウンを作り直す
+    const $sel = $("#voiceSelect").empty();
+    voices.forEach((v, i) => $sel.append('<option value="'+i+'">'+v.name+'</option>'));
+
+    // 一番点数の高い声を初期選択
+    if(voices.length){ selectedVoice = voices[0]; $sel.val("0"); }
+}
+
+if("speechSynthesis" in window){
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;   // 声が後から読み込まれる環境向け
+}
+
+function say(text, rate){
+    if(!soundOn || !("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();                        // 前の読み上げを止める
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ja-JP";
+    u.rate = rate || 1.0;    // 速さ（1.0 = 標準）
+    u.pitch = 1.05;          // 高さを少しだけ上げて明るく
+    if(selectedVoice) u.voice = selectedVoice;
+    speechSynthesis.speak(u);
+}
+
+// 声を選び直したら、見本を鳴らす
+$("#voiceSelect").on("change", function(){
+    selectedVoice = voices[parseInt(this.value, 10)] || null;
+    say("じゃんけん、ぽん！");
+});
+
+/* ===== ラウンド開始（さいしょはグー）===== */
+function startRound(){
+    clearHands();
+    roundActive = true;
+    const myId = ++roundSeq;
+    $("#result").removeClass("win-a win-b victory show").html("✊ さいしょは グー…");
+    say("さいしょはグー、じゃんけん、ぽん！");
+    setTimeout(() => { if(myId === roundSeq && roundActive) $("#result").html("✌️ じゃんけん…ぽん！ どうぞ！"); }, 1100);
+}
+
+/* ===== 入力 ===== */
+$(document).on("keydown", function(e){
+    initAudio();
+
+    if(e.isComposing || e.keyCode === 229){
+        $("#hint").html("⚠ 日本語入力がONです。半角/英数に切り替えてください。");
+        return;
+    }
+
+    if(e.code === "Space" || e.key === " "){
+        e.preventDefault();
+        if(matchOver){ resetMatch(); startRound(); }
+        else if(!roundActive){ startRound(); }     // 待機中なら次の勝負へ
+        return;
+    }
+
+    if(!roundActive) return;                         // ラウンド中だけ手を出せる
+
+    const entry = keyMap[e.code] || altKeyMap[(e.key || "").toLowerCase()];
+    if(!entry) return;
+    $("#hint").html("");
+
+    if(entry.player === "A"){
+        handA = entry.hand; $("#statusA").html("準備OK！"); $("#playerA").addClass("ready");
+    } else {
+        handB = entry.hand; $("#statusB").html("準備OK！"); $("#playerB").addClass("ready");
+    }
+    sndSelect();
+
+    if(handA !== "" && handB !== "") showResult();
+});
+
+/* ===== 勝敗表示 ===== */
+function showResult(){
+    roundActive = false;
+    showHand("#handA", handA);
+    showHand("#handB", handB);
+
+    const result = judge(handA, handB);   // "A" / "B" / "draw"
+    const $r = $("#result").removeClass("win-a win-b victory show");
+
+    if(result === "draw"){
+        $r.addClass("show").html("🤝 あいこ…");
+        say("あいこでしょ！");
+        // そのまま出し直し
+        const myId = ++roundSeq;
+        setTimeout(() => {
+            if(myId !== roundSeq) return;
+            clearHands();
+            roundActive = true;
+            $("#result").removeClass("show").html("✌️ あいこでしょ！ どうぞ！");
+        }, 900);
+        return;
+    }
+
+    if(result === "A") scoreA++; else scoreB++;
+    updateScore();
+    void $r[0].offsetWidth;
+    $r.addClass("show");
+
+    if(scoreA >= WIN_COUNT || scoreB >= WIN_COUNT){
+        matchOver = true;
+        const champ = scoreA >= WIN_COUNT ? "A" : "B";
+        $r.addClass("victory").html("🎉🏆 PLAYER " + champ + " の優勝！ 🏆🎉");
+        $("#player" + champ).addClass("champion");   // 勝者カードを光らせる
+        sndVictory();
+        sndCheer();
+        celebrate(champ);                            // 勝者カラーの紙吹雪
+        say("プレイヤー" + champ + " の、ゆうしょう！ おめでとう！");
+    } else {
+        $r.addClass(result === "A" ? "win-a" : "win-b").html("PLAYER " + result + " の勝ち！");
+        sndWin();
+        say("プレイヤー" + result + " の、かち！");
+    }
+}
+
+function showHand(sel, hand){
+    $(sel).removeClass("pop").html(EMOJI[hand] || hand);
+    void $(sel)[0].offsetWidth;
+    $(sel).addClass("pop");
+}
+
+// PLAYER A から見た勝敗（"A" / "B" / "draw"）
+function judge(a, b){
+    if(a === b) return "draw";
+    if((a==="グー"&&b==="チョキ")||(a==="チョキ"&&b==="パー")||(a==="パー"&&b==="グー")) return "A";
+    return "B";
+}
+
+function updateScore(){ $("#scoreA").html(scoreA); $("#scoreB").html(scoreB); }
+
+/* ===== リセット ===== */
+function clearHands(){
+    handA = ""; handB = "";
+    $("#statusA, #statusB").html("まだ");
+    $("#handA, #handB").removeClass("pop").html("");
+    $("#playerA, #playerB").removeClass("ready champion");
+}
+function resetMatch(){
+    scoreA = 0; scoreB = 0; matchOver = false;
+    updateScore();
+    clearHands();
+}
+
+/* ===== 音声・効果音ON/OFF ===== */
+$("#soundToggle").on("click", function(){
+    soundOn = !soundOn;
+    $(this).html(soundOn ? "🔊 音声・効果音：ON" : "🔇 音声・効果音：OFF");
+    if(!soundOn && "speechSynthesis" in window) speechSynthesis.cancel();
+    initAudio();
+});
+</script>
+</body>
+</html>

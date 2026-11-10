@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<script src="js/jquery-2.1.3.min.js"></script>
+<link rel="stylesheet" href="css/sample.css">
+<title>じゃんけん（2人対戦）</title>
+<style>
+  .hidden { display: none; }
+  main ul li { cursor: pointer; }
+  main ul li.selected { font-weight: bold; text-decoration: underline; }
+  #result { margin-top: 1em; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>じゃんけん（2人対戦）</h1>
+</header>
+
+<main>
+
+  <!-- プレイヤー1の入力画面 -->
+  <section id="player1_area">
+    <h2>プレイヤー1 の番</h2>
+    <p>手を選んでください（プレイヤー2に見えないように！）</p>
+    <ul>
+      <li class="hand_btn" data-hand="グー">グー</li>
+      <li class="hand_btn" data-hand="チョキ">チョキ</li>
+      <li class="hand_btn" data-hand="パー">パー</li>
+    </ul>
+  </section>
+
+  <!-- プレイヤー2の入力画面 -->
+  <section id="player2_area" class="hidden">
+    <h2>プレイヤー2 の番</h2>
+    <p>手を選んでください</p>
+    <ul>
+      <li class="hand_btn" data-hand="グー">グー</li>
+      <li class="hand_btn" data-hand="チョキ">チョキ</li>
+      <li class="hand_btn" data-hand="パー">パー</li>
+    </ul>
+  </section>
+
+  <!-- 結果画面 -->
+  <section id="result_area" class="hidden">
+    <h2>結果</h2>
+    <div>プレイヤー1の手：「<span id="p1_hands">？</span>」</div>
+    <div>プレイヤー2の手：「<span id="p2_hands">？</span>」</div>
+    <div id="result">判定</div>
+    <p><button id="again_btn">もう一度</button></p>
+  </section>
+
+</main>
+
+<footer></footer>
+<script>
+let p1Hand = "";   // プレイヤー1の手
+let p2Hand = "";   // プレイヤー2の手
+
+// プレイヤー1の手を選ぶ
+$("#player1_area .hand_btn").on("click", function(){
+    p1Hand = $(this).data("hand");
+    // プレイヤー1の画面を隠して、プレイヤー2の画面を表示
+    $("#player1_area").addClass("hidden");
+    $("#player2_area").removeClass("hidden");
+});
+
+// プレイヤー2の手を選ぶ
+$("#player2_area .hand_btn").on("click", function(){
+    p2Hand = $(this).data("hand");
+    // 結果を表示
+    showResult();
+});
+
+// 勝敗を判定して表示
+function showResult(){
+    $("#p1_hands").html(p1Hand);
+    $("#p2_hands").html(p2Hand);
+    $("#result").html(judge(p1Hand, p2Hand));
+
+    $("#player2_area").addClass("hidden");
+    $("#result_area").removeClass("hidden");
+}
+
+// プレイヤー1から見た勝敗を返す
+function judge(a, b){
+    if(a === b){
+        return "あいこ";
+    }
+    if(
+        (a === "グー"   && b === "チョキ") ||
+        (a === "チョキ" && b === "パー")   ||
+        (a === "パー"   && b === "グー")
+    ){
+        return "プレイヤー1の勝ち";
+    }
+    return "プレイヤー2の勝ち";
+}
+
+// もう一度 ボタン：最初に戻す
+$("#again_btn").on("click", function(){
+    p1Hand = "";
+    p2Hand = "";
+    $("#result_area").addClass("hidden");
+    $("#player1_area").removeClass("hidden");
+});
+</script>
+</body>
+</html>
